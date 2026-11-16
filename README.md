@@ -22,4 +22,4 @@ npm run dev      # local preview
 npm run build    # output in dist/
 ```
 
-The backend URL is in `src/api.js`. Hosting: Vercel, building from this repo on every push to `main`.
+The backend URL is in `src/api.js`. Hosting: Vercel, building from this repo on every push to `master`.
