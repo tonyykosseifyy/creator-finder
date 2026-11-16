@@ -3,7 +3,7 @@
 The team's review app for the creator finder. It is a static React site (Vite). All data lives in the
 Google Sheet, and the Google Apps Script web app is the backend: every screen calls it with a plain POST.
 
-- **Review**: creators waiting in Candidates. Shortlist (adds them to Creators) or mark not a fit.
+- **Instagram** and **TikTok**: the creators waiting in Candidates, one page per platform, with waiting counts in the menu. Shortlist (adds them to Creators) or mark not a fit; every decision can be undone for 6 seconds.
   Keys: J / K to move, S to shortlist, X for not a fit.
 - **Brands**: brands creators work with; local ones are scanned automatically.
 - **Control**: daily run switch, seeds, settings, Apify spend and the run log.

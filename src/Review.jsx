@@ -43,7 +43,7 @@ function Row({ c, active, onPick, small }) {
   );
 }
 
-function Detail({ c, smallMax, today, activeDays, onDecide, api, notify }) {
+function Detail({ c, smallMax, today, activeDays, onDecide, api, notify, isTikTok }) {
   const [mode, setMode] = useState(null);
   const [message, setMessage] = useState('');
   const [reason, setReason] = useState(REASONS[0]);
@@ -77,13 +77,9 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify }) {
     setBusy('draft');
     try { setMessage(await api('uiDraftDm', c.row, c.handle)); } catch (e) { notify(e.message, 'bad'); } finally { setBusy(''); }
   };
-  const decide = async kind => {
-    setBusy(kind);
-    try {
-      if (kind === 'shortlist') await api('uiDecide', c.row, c.handle, 'shortlist', '', message);
-      else await api('uiDecide', c.row, c.handle, 'reject', details.trim() ? `${reason}: ${details.trim()}` : reason, '');
-      onDecide(c.row, kind === 'shortlist' ? `@${c.handle} added to Creators` : `@${c.handle} marked not a fit`);
-    } catch (e) { notify(e.message, 'bad'); setBusy(''); }
+  const decide = kind => {
+    if (kind === 'shortlist') onDecide(c, 'shortlist', { message });
+    else onDecide(c, 'reject', { reason: details.trim() ? `${reason}: ${details.trim()}` : reason });
   };
 
   return (
@@ -92,7 +88,7 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify }) {
         <header className="who">
           <div>
             <h2 dir="auto">{c.name || c.handle}</h2>
-            <a className="handle" href={c.profileUrl} target="_blank" rel="noreferrer">@{c.handle} on {c.platform}</a>
+            <a className="handle" href={c.profileUrl} target="_blank" rel="noreferrer">@{c.handle} on {c.platform}<span className="sr-only"> (opens in a new tab)</span></a>
           </div>
           <div className="count">
             <strong>{f == null ? '?' : f.toLocaleString()}</strong>
@@ -103,7 +99,7 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify }) {
 
         <section className="posts" aria-label="Their posts">
           {embeds.length
-            ? embeds.map(u => <iframe key={u} src={u} title="Instagram post" loading="lazy" allowFullScreen />)
+            ? embeds.map(u => <iframe key={u} src={u} title={isTikTok ? 'TikTok video' : 'Instagram post'} loading="lazy" allowFullScreen className={isTikTok ? 'tt' : ''} />)
             : <p className="empty-note">No post links were saved for this creator.</p>}
         </section>
         {posts.length > 0 && (
@@ -166,7 +162,7 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify }) {
             <textarea id="dm" ref={msgRef} dir="auto" value={message} onChange={e => setMessage(e.target.value)} placeholder="Write the DM, or let Gemini draft it in their dialect" />
             <div className="decide-actions">
               <button className="btn" onClick={draft} disabled={!!busy}>{busy === 'draft' ? 'Drafting…' : message ? 'Draft again' : 'Draft with Gemini'}</button>
-              <button className="btn primary" onClick={() => decide('shortlist')} disabled={!!busy}>{busy === 'shortlist' ? 'Adding…' : 'Add to Creators'}</button>
+              <button className="btn primary" onClick={() => decide('shortlist')} disabled={busy === 'draft'}>Add to Creators</button>
             </div>
           </div>
         )}
@@ -176,7 +172,7 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify }) {
             <div className="decide-actions">
               <select id="reason" value={reason} onChange={e => setReason(e.target.value)}>{REASONS.map(r => <option key={r}>{r}</option>)}</select>
               <input value={details} onChange={e => setDetails(e.target.value)} placeholder="Details (optional)" aria-label="Details" />
-              <button className="btn danger" onClick={() => decide('reject')} disabled={!!busy}>{busy === 'reject' ? 'Saving…' : 'Mark not a fit'}</button>
+              <button className="btn danger" onClick={() => decide('reject')}>Mark not a fit</button>
             </div>
           </div>
         )}
@@ -193,34 +189,44 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify }) {
   );
 }
 
-export default function Review({ api, notify }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+function Skeleton() {
+  return (
+    <main id="main" className="review" aria-busy="true">
+      <aside className="queue"><div className="filters"><div className="sk sk-in" /><div className="sk sk-in" /></div>
+        <div className="rows">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="row sk-row"><span className="sk sk-l" /><span className="sk sk-s" /></div>)}</div>
+      </aside>
+      <section className="detail"><div className="detail-scroll"><div className="sk sk-h" /><div className="sk sk-p" /><div className="sk-posts">{[0, 1, 2].map(i => <div key={i} className="sk sk-post" />)}</div></div></section>
+      <span className="sr-only" role="status">Loading the creators waiting for review</span>
+    </main>
+  );
+}
+
+export default function Review({ platform, queue, error, reload, decide, api, notify }) {
+  const isTikTok = platform === 'TikTok';
   const [sel, setSel] = useState(null);
   const [f, setF] = useState({ market: '', tier: '', hair: '', fit: 0, noComp: false, speaks: false, q: '', sort: 'fit' });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setError('');
-    try { const r = await api('uiQueue'); setData(r); } catch (e) { setError(e.message); }
-  }, [api]);
-  useEffect(() => { load(); }, [load]);
-
-  const smallMax = (data && data.smallMax) || 10000;
+  const smallMax = (queue && queue.smallMax) || 10000;
+  const mine = useMemo(() => (queue ? queue.items.filter(c => (c.platform || 'Instagram') === platform) : []), [queue, platform]);
   const list = useMemo(() => {
-    if (!data) return [];
     const q = f.q.trim().toLowerCase();
-    const L = data.items.filter(c => (!f.market || c.market === f.market) && (!f.hair || c.hairType === f.hair) && (num(c.ugcFit) || 0) >= f.fit
+    const L = mine.filter(c => (!f.market || c.market === f.market) && (!f.hair || c.hairType === f.hair) && (num(c.ugcFit) || 0) >= f.fit
       && (!f.noComp || !c.competitor) && (!f.speaks || c.speaks === 'Yes')
       && (!f.tier || (f.tier === 'small') === ((num(c.followers) || 0) < smallMax))
       && (!q || [c.name, c.handle, c.bio, c.persona, c.summary, c.niches].join(' ').toLowerCase().includes(q)));
     return L.sort((a, b) => f.sort === 'new' ? String(b.foundOn).localeCompare(String(a.foundOn))
       : f.sort === 'followers' ? (num(b.followers) || 0) - (num(a.followers) || 0)
       : (num(b.ugcFit) || 0) - (num(a.ugcFit) || 0) || (num(b.delivery) || 0) - (num(a.delivery) || 0));
-  }, [data, f, smallMax]);
+  }, [mine, f, smallMax]);
 
+  // after Undo, the creator who came back is selected again
+  useEffect(() => { if (queue && queue.focus) setSel(queue.focus); }, [queue && queue.focus]); // eslint-disable-line react-hooks/exhaustive-deps
   const current = list.find(c => c.row === sel) || list[0] || null;
-  useEffect(() => { if (current && current.row !== sel) setSel(current.row); }, [current, sel]);
+  const filtered = f.q || f.market || f.tier || f.hair || f.fit || f.noComp || f.speaks;
+  const activeFilters = [f.market, f.tier, f.hair, f.fit, f.noComp, f.speaks].filter(Boolean).length;
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const onKey = e => {
@@ -233,24 +239,48 @@ export default function Review({ api, notify }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [list, current]);
 
-  const onDecide = (row, text) => {
-    const i = list.findIndex(c => c.row === row);
+  const onDecide = (c, kind, extra) => {
+    const i = list.findIndex(x => x.row === c.row);
     const next = list[i + 1] || list[i - 1];
-    setData(d => ({ ...d, items: d.items.filter(c => c.row !== row), reviewed: (d.reviewed || 0) + 1 }));
     setSel(next ? next.row : null);
-    notify(text, 'good');
+    decide(c, kind, extra);
   };
+  const refresh = async () => { setRefreshing(true); await reload(); setRefreshing(false); };
 
-  if (error) return <main className="state"><p>{error}</p><button className="btn" onClick={load}>Try again</button></main>;
-  if (!data) return <main className="state"><p className="loading">Loading the creators waiting for review…</p></main>;
+  if (error && !queue) return <main id="main" className="state"><p>{error}</p><button className="btn" onClick={reload}>Try again</button></main>;
+  if (!queue) return <Skeleton />;
+
+  if (!mine.length) {
+    return (
+      <main id="main" className="empty-page">
+        <div className="empty-card">
+          <h1>No {platform} creators waiting</h1>
+          <p>You're up to date: {queue.reviewed || 0} creators reviewed so far. The next run starts at 05:00 Beirut and adds new ones here.</p>
+          <p className="muted">To find more sooner, add creators you already like as seeds in Control: their related accounts become the next candidates.</p>
+          <div className="actions">
+            <a className="btn primary" href="#/control">Add seed creators</a>
+            <button className="btn" onClick={refresh} disabled={refreshing}>{refreshing ? 'Checking…' : 'Check again'}</button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="review">
-      <aside className="queue" aria-label="Creators waiting">
+    <main id="main" className="review">
+      <aside className="queue" aria-label={`${platform} creators waiting`}>
         <div className="filters">
+          <div className="queue-title">
+            <h1>{platform}</h1>
+            <button className="link quiet" onClick={refresh} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
+          </div>
           <input type="search" value={f.q} onChange={e => set('q', e.target.value)} placeholder="Search name, bio, persona" aria-label="Search" />
+          <button className="btn filters-toggle" aria-expanded={showFilters} aria-controls="filter-body" onClick={() => setShowFilters(v => !v)}>
+            Filters{activeFilters ? ` (${activeFilters})` : ''}
+          </button>
+          <div id="filter-body" className={showFilters ? 'filter-body open' : 'filter-body'}>
           <div className="filter-grid">
-            <select value={f.market} onChange={e => set('market', e.target.value)} aria-label="Market"><option value="">All markets</option><option>LB</option><option>JO</option><option>SY</option></select>
+            <select value={f.market} onChange={e => set('market', e.target.value)} aria-label="Market"><option value="">All markets</option><option value="LB">Lebanon</option><option value="JO">Jordan</option><option value="SY">Syria</option></select>
             <select value={f.tier} onChange={e => set('tier', e.target.value)} aria-label="Size"><option value="">All sizes</option><option value="small">Under 10k</option><option value="big">10k and over</option></select>
             <select value={f.hair} onChange={e => set('hair', e.target.value)} aria-label="Hair"><option value="">Any hair</option><option>Straight</option><option>Wavy</option><option>Curly</option><option>Coily</option></select>
             <select value={f.fit} onChange={e => set('fit', Number(e.target.value))} aria-label="UGC fit"><option value={0}>Any UGC fit</option><option value={3}>UGC fit 3+</option><option value={4}>UGC fit 4+</option></select>
@@ -259,19 +289,25 @@ export default function Review({ api, notify }) {
             <label><input type="checkbox" checked={f.speaks} onChange={e => set('speaks', e.target.checked)} /> Talks to camera</label>
             <label><input type="checkbox" checked={f.noComp} onChange={e => set('noComp', e.target.checked)} /> Hide competitor-linked</label>
           </div>
+          </div>
           <div className="queue-head">
-            <span>{list.length} of {data.items.length} waiting, {data.reviewed || 0} reviewed</span>
+            <span>{filtered ? `${list.length} of ${mine.length} waiting` : `${mine.length} waiting`}</span>
             <select value={f.sort} onChange={e => set('sort', e.target.value)} aria-label="Sort"><option value="fit">Best UGC fit</option><option value="new">Newest</option><option value="followers">Most followers</option></select>
           </div>
         </div>
         <div className="rows">
           {list.map(c => <Row key={c.row} c={c} small={(num(c.followers) || 0) < smallMax} active={current && c.row === current.row} onPick={() => setSel(c.row)} />)}
-          {!list.length && <p className="empty-note">{data.items.length ? 'Nobody matches these filters.' : 'Everyone has been reviewed. New creators arrive after the 05:00 run.'}</p>}
+          {!list.length && (
+            <div className="empty-note">
+              <p>Nobody matches these filters.</p>
+              <button className="link" onClick={() => setF({ market: '', tier: '', hair: '', fit: 0, noComp: false, speaks: false, q: '', sort: f.sort })}>Clear filters</button>
+            </div>
+          )}
         </div>
       </aside>
       {current
-        ? <Detail key={current.row} c={current} smallMax={smallMax} today={data.today} activeDays={data.activeDays} onDecide={onDecide} api={api} notify={notify} />
-        : <section className="detail empty"><p>Pick a creator on the left.</p></section>}
+        ? <Detail key={current.row} c={current} isTikTok={isTikTok} smallMax={smallMax} today={queue.today} activeDays={queue.activeDays} onDecide={onDecide} api={api} notify={notify} />
+        : <section className="detail empty"><p>Clear the filters to see the {mine.length} waiting.</p></section>}
     </main>
   );
 }

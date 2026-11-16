@@ -3,8 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 const STATUSES = ['New', 'Scan', 'Skip', 'Person'];
 const num = s => Number(String(s || '').replace(/[,\s]/g, '')) || 0;
 
-export default function Brands({ api, notify }) {
-  const [rows, setRows] = useState(null);
+export default function Brands({ api, notify, rows, setRows }) {
   const [error, setError] = useState('');
   const [f, setF] = useState({ status: '', market: '', q: '' });
   const [paste, setPaste] = useState('');
@@ -13,8 +12,8 @@ export default function Brands({ api, notify }) {
   const load = useCallback(async () => {
     setError('');
     try { setRows(await api('uiBrands')); } catch (e) { setError(e.message); }
-  }, [api]);
-  useEffect(() => { load(); }, [load]);
+  }, [api, setRows]);
+  useEffect(() => { if (!rows) load(); }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const list = useMemo(() => (rows || [])
     .filter(b => (!f.status || b.status === f.status) && (!f.market || b.market === f.market) && (!f.q || b.handle.toLowerCase().includes(f.q.toLowerCase())))
@@ -37,17 +36,18 @@ export default function Brands({ api, notify }) {
     } catch (e) { notify(e.message, 'bad'); } finally { setAdding(false); }
   };
 
-  if (error) return <main className="state"><p>{error}</p><button className="btn" onClick={load}>Try again</button></main>;
-  if (!rows) return <main className="state"><p className="loading">Loading brands…</p></main>;
+  if (error && !rows) return <main id="main" className="state"><p>{error}</p><button className="btn" onClick={load}>Try again</button></main>;
+  if (!rows) return <main id="main" className="state" aria-busy="true"><p className="loading">Loading brands…</p></main>;
 
   return (
-    <main className="page">
+    <main id="main" className="page">
       <div className="page-head">
         <div>
           <h1>Brands</h1>
           <p className="muted">Brands creators work with. Local ones are scanned automatically once Gemini has checked them. Set Skip to stop a brand.</p>
         </div>
         <div className="filter-row">
+          <button className="btn" onClick={load}>Refresh</button>
           <input type="search" value={f.q} onChange={e => setF({ ...f, q: e.target.value })} placeholder="Search handle" aria-label="Search handle" />
           <select value={f.status} onChange={e => setF({ ...f, status: e.target.value })} aria-label="Status"><option value="">All statuses</option>{STATUSES.map(s => <option key={s}>{s}</option>)}</select>
           <select value={f.market} onChange={e => setF({ ...f, market: e.target.value })} aria-label="Market"><option value="">All markets</option><option>LB</option><option>JO</option><option>SY</option></select>
