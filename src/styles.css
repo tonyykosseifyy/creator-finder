@@ -324,3 +324,4 @@ a.btn { text-decoration: none; }
   .runbar-text { flex-basis: calc(100% - 30px); }
   .runbar-time { flex-basis: 100%; justify-items: start; text-align: left; padding-left: 24px; }
 }
+.check-line { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--ink-2); margin-top: 8px; }

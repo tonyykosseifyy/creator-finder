@@ -10,9 +10,10 @@ const TABS = [
   ['seeds', 'Seeds', 'Creators you already like. Each is checked once; Last checked and Result are filled by the finder.', null],
   ['network', 'Network', 'Creators whose related profiles and following were explored. Delete a row to explore that creator again.', null],
   ['backlog', 'Backlog', 'Accounts the searches found but a run had no budget left to check. The next runs check them first, which costs far less than searching again. They leave after 30 days. Delete one to skip it.', null],
+  ['requests', 'Requests', 'Feedback and change requests for Claude. Add them here or while reviewing a creator, then ask Claude to work through the New ones. Set the status as they get done.', null],
   ['runlog', 'Run log', 'One row per run: how many accounts were checked, studied and kept.', null],
 ];
-const SHEET_NAME = { creators: 'Creators', candidates: 'Candidates', keywords: 'Keywords', seeds: 'Seeds', network: 'Network', backlog: 'Backlog', runlog: 'Run log' };
+const SHEET_NAME = { creators: 'Creators', candidates: 'Candidates', keywords: 'Keywords', seeds: 'Seeds', network: 'Network', backlog: 'Backlog', requests: 'Requests', runlog: 'Run log' };
 const CHOICES = {
   'Creators:Status': ['New', 'Contacted', 'Replied', 'Negotiating', 'Test video', 'Rostered', 'Declined', 'Not a fit'],
   'Keywords:Type': ['Hashtag', 'Search term', 'Location', 'Own account: tagged and mentions', 'Competitor: tagged posts'],
@@ -21,8 +22,9 @@ const CHOICES = {
   'Keywords:Source': ['3. Market search', '1. Customers', '2. Competitors'],
   'Seeds:Platform': ['', 'Instagram', 'TikTok'],
   'Seeds:Market': ['', 'LB', 'JO', 'SY'],
+  'Requests:Status': ['New', 'Planned', 'Done', "Won't do"],
 };
-const LONG = /message|why picked|bio|persona|summary|notes|reason|evidence|example posts|found through|signals|errors/i;
+const LONG = /request|message|why picked|bio|persona|summary|notes|reason|evidence|example posts|found through|signals|errors/i;
 const PAGE = 150;
 
 function Links({ text }) {
@@ -42,7 +44,7 @@ function Cell({ sheet, header, value, editable, onSave, href }) {
   const choices = CHOICES[`${sheet}:${header}`];
   const isActive = sheet === 'Keywords' && header === 'Active';
   const long = LONG.test(header);
-  const multi = long && (sheet === 'Creators' || /message/i.test(header));  // long writing gets a text box
+  const multi = long && (sheet === 'Creators' || sheet === 'Requests' || /message/i.test(header));  // long writing gets a text box
 
   if (isActive) {
     const on = /^true$/i.test(String(value));
@@ -177,7 +179,7 @@ export default function Sheets({ api, notify, tab, cache, setCache }) {
                     ? <select key={i} value={newRow[i] ?? choices[0]} onChange={e => setNewRow(p => ({ ...p, [i]: e.target.value }))} aria-label={`New row: ${h}`}>{choices.map(o => <option key={o} value={o}>{o || (h === 'Platform' ? 'Platform: from link' : `${h}: not set`)}</option>)}</select>
                     : <input key={i} value={newRow[i] ?? ''} onChange={e => setNewRow(p => ({ ...p, [i]: e.target.value }))} placeholder={h} aria-label={`New row: ${h}`} className={i === 0 ? 'first' : ''} />;
                 })}
-                <button className="btn primary" type="submit" disabled={!String(newRow[0] || '').trim()}>Add {name === 'Keywords' ? 'keyword' : 'seed'}</button>
+                <button className="btn primary" type="submit" disabled={!String(newRow[0] || '').trim()}>Add {name === 'Keywords' ? 'keyword' : name === 'Requests' ? 'request' : 'seed'}</button>
               </form>
             )}
             <div className="table-wrap sheet-table">

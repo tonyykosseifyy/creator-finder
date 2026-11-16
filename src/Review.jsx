@@ -49,14 +49,18 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify, isTikTo
   const [reason, setReason] = useState(REASONS[0]);
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState('');
+  const [request, setRequest] = useState('');
+  const [alsoRequest, setAlsoRequest] = useState(false);
   const msgRef = useRef();
+  const reqRef = useRef();
 
-  useEffect(() => { setMode(null); setMessage(''); setReason(REASONS[0]); setDetails(''); setBusy(''); }, [c.row]);
+  useEffect(() => { setMode(null); setMessage(''); setReason(REASONS[0]); setDetails(''); setBusy(''); setRequest(''); setAlsoRequest(false); }, [c.row]);
   useEffect(() => {
     const onKey = e => {
       if (/input|textarea|select/i.test(e.target.tagName)) { if (e.key === 'Escape') { e.target.blur(); setMode(null); } return; }
       if (e.key === 's') { e.preventDefault(); setMode('short'); setTimeout(() => msgRef.current && msgRef.current.focus(), 0); }
       if (e.key === 'x') { e.preventDefault(); setMode('nofit'); }
+      if (e.key === 'r') { e.preventDefault(); setMode('request'); setTimeout(() => reqRef.current && reqRef.current.focus(), 0); }
       if (e.key === 'Escape') setMode(null);
     };
     window.addEventListener('keydown', onKey);
@@ -77,9 +81,24 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify, isTikTo
     setBusy('draft');
     try { setMessage(await api('uiDraftDm', c.row, c.handle)); } catch (e) { notify(e.message, 'bad'); } finally { setBusy(''); }
   };
+  // requests for Claude go to the Requests tab, with the creator they came from
+  const page = `${isTikTok ? 'TikTok' : 'Instagram'} review`;
+  const saveRequest = async (text, quiet) => {
+    try { await api('uiAddRequest', text, page, `@${c.handle}`); if (!quiet) notify('Saved to Requests', 'good'); return true; }
+    catch (e) { notify(e.message, 'bad'); return false; }
+  };
+  const sendRequest = async () => {
+    if (!request.trim()) return;
+    setBusy('request');
+    if (await saveRequest(request.trim())) { setRequest(''); setMode(null); }
+    setBusy('');
+  };
   const decide = kind => {
     if (kind === 'shortlist') onDecide(c, 'shortlist', { message });
-    else onDecide(c, 'reject', { reason: details.trim() ? `${reason}: ${details.trim()}` : reason });
+    else {
+      if (alsoRequest && details.trim()) saveRequest(details.trim(), true);
+      onDecide(c, 'reject', { reason: details.trim() ? `${reason}: ${details.trim()}` : reason });
+    }
   };
 
   return (
@@ -175,12 +194,24 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify, isTikTo
               <input value={details} onChange={e => setDetails(e.target.value)} placeholder="Details (optional)" aria-label="Details" />
               <button className="btn danger" onClick={() => decide('reject')}>Mark not a fit</button>
             </div>
+            <label className="check-line"><input type="checkbox" checked={alsoRequest} disabled={!details.trim()} onChange={e => setAlsoRequest(e.target.checked)} /> Also save the details as a request for Claude</label>
+          </div>
+        )}
+        {mode === 'request' && (
+          <div className="decide-form">
+            <label htmlFor="req">Request for Claude, saved in the Requests tab with @{c.handle}</label>
+            <textarea id="req" ref={reqRef} dir="auto" value={request} onChange={e => setRequest(e.target.value)} placeholder="e.g. Drop all creators who wear a hijab, or: find more creators like her" />
+            <div className="decide-actions">
+              <button className="btn primary" onClick={sendRequest} disabled={!request.trim() || busy === 'request'}>{busy === 'request' ? 'Saving…' : 'Save request'}</button>
+              <span className="hint">This creator stays in your queue.</span>
+            </div>
           </div>
         )}
         {!mode && (
           <div className="decide-actions">
             <button className="btn primary" onClick={() => { setMode('short'); setTimeout(() => msgRef.current && msgRef.current.focus(), 0); }}>Shortlist <kbd>S</kbd></button>
             <button className="btn danger" onClick={() => setMode('nofit')}>Not a fit <kbd>X</kbd></button>
+            <button className="btn" onClick={() => { setMode('request'); setTimeout(() => reqRef.current && reqRef.current.focus(), 0); }}>Request a change <kbd>R</kbd></button>
             <span className="hint">Next and previous: <kbd>J</kbd> <kbd>K</kbd></span>
           </div>
         )}
