@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 const STEPS = {
+  starting: ['', 'Starting: planning today\'s searches and sending them to Apify (about 15 seconds)'],
   scraping: ['1', 'Searching hashtags, places, tagged posts and related profiles'],
   profiles: ['2', 'Checking the profiles it found'],
   labelling: ['3', 'Gemini is studying the creators who passed'],

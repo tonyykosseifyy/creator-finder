@@ -115,12 +115,13 @@ export default function App() {
   }, [running, checkRun]);
   // when a run ends while the portal is open: say so, and load the new creators
   useEffect(() => {
-    if (wasRunning.current && !running && run) {
+    // a run that never got past "starting" is reported by the Run now button, not here
+    if (wasRunning.current && wasRunning.current !== 'starting' && !running && run) {
       const took = run.lastStarted && run.lastFinished ? ` in ${fmtDuration(run.lastFinished - run.lastStarted)}` : '';
       notify(`Run finished${took}. ${String(run.status || '').replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}: /, '')}`, 'good', { label: 'Review', run: () => { window.location.hash = '#/instagram'; setToast(null); } });
       loadQueue(); setSheets({}); setControl(null);
     }
-    wasRunning.current = running;
+    wasRunning.current = running ? run.stage : '';
   }, [running, run, notify, loadQueue]);
 
   // A decision leaves the queue at once and is saved after the undo window.
@@ -201,7 +202,7 @@ export default function App() {
         {route === 'tiktok' && <Review platform="TikTok" queue={queue} error={queueError} reload={loadQueue} decide={decide} api={api} notify={notify} />}
         {SHEET_TABS.includes(route) && <Sheets api={api} notify={notify} tab={route} cache={sheets} setCache={setSheets} />}
         {route === 'brands' && <Brands api={api} notify={notify} rows={brands} setRows={setBrands} />}
-        {route === 'control' && <Control api={api} notify={notify} data={control} setData={setControl} run={run} onRun={takeRun} />}
+        {route === 'control' && <Control api={api} notify={notify} data={control} setData={setControl} run={run} onRun={takeRun} onRunError={checkRun} />}
       </Boundary>
       {toast && (
         <div key={toast.id} className={'toast ' + toast.tone} role="status" aria-live="polite">

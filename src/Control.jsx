@@ -66,7 +66,7 @@ function MarketPicker({ value, onChange }) {
   );
 }
 
-export default function Control({ api, notify, data: c, setData: setC, run: liveRun, onRun }) {
+export default function Control({ api, notify, data: c, setData: setC, run: liveRun, onRun, onRunError }) {
   const [error, setError] = useState('');
   const [edits, setEdits] = useState({});
   const [seeds, setSeeds] = useState('');
@@ -83,7 +83,7 @@ export default function Control({ api, notify, data: c, setData: setC, run: live
   const run = async (label, fn, done) => {
     setBusy(label);
     try { const r = await fn(); if (r && r.settings) setC(r); if (r && r.run && onRun) onRun(r.run); if (done) { const m = [].concat(done(r)); notify(m[0], m[1] || 'good'); } return r; }
-    catch (e) { notify(e.message, 'bad'); }
+    catch (e) { notify(e.message, 'bad'); if (label === 'run' && onRunError) onRunError(); }
     finally { setBusy(''); }
   };
 
@@ -134,7 +134,7 @@ export default function Control({ api, notify, data: c, setData: setC, run: live
               {!armed
                 ? <button className="btn" disabled={!!busy || stage !== 'idle'} onClick={() => setArmed(true)}>Run now</button>
                 : <>
-                    <button className="btn primary" disabled={!!busy} onClick={() => { setArmed(false); run('run', () => api('uiRunNow'), r => (r.run && r.run.stage !== 'idle' ? ['Run started. The bar at the top shows its progress.', 'good'] : [`The run did not start: ${String((r.run && r.run.status) || r.status || '').replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}: /, '')}`, 'bad'])); }}>Start a full run</button>
+                    <button className="btn primary" disabled={!!busy} onClick={() => { setArmed(false); if (onRun) onRun({ stage: 'starting', runStarted: Date.now(), now: Date.now() }); run('run', () => api('uiRunNow'), r => (r.run && r.run.stage !== 'idle' ? ['Run started. The bar at the top shows its progress.', 'good'] : [`The run did not start: ${String((r.run && r.run.status) || r.status || '').replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}: /, '')}`, 'bad'])); }}>Start a full run</button>
                     <button className="link quiet" onClick={() => setArmed(false)}>Cancel</button>
                   </>}
             </div>
