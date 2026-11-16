@@ -247,3 +247,10 @@ a.btn { text-decoration: none; }
   .filter-body.open { display: grid; }
 }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } .toast { animation: none; } }
+
+.markets { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.mk { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font-size: 13.5px; cursor: pointer; background: var(--surface); }
+.mk.on { border-color: var(--heat); background: #fbeef3; color: var(--heat-ink); font-weight: 600; }
+.mk input { accent-color: var(--heat); margin: 0; }
+.setting:has(.markets) { grid-template-columns: 1fr auto; }
+.tier.unclear { color: var(--amber); font-weight: 600; }

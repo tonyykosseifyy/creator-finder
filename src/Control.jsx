@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 // Settings grouped by what they control, each with a one-line explanation. Labels must match the Settings tab.
 const GROUPS = [
-  ['Budget and schedule', [
+  ['Budget, markets and schedule', [
     ['Monthly Apify budget (USD)', 'The finder never plans past this. Each run gets an even share of what is left this billing month.'],
+    ['Markets to find', 'Creators clearly in other markets are left out. Creators whose location is unclear are kept for you to judge.'],
     ['Discovery days', 'Daily, or days such as Mon, Wed, Fri.'],
     ['Search TikTok', 'Yes or No. TikTok checks cost about 10 times an Instagram check.'],
   ]],
@@ -44,6 +45,26 @@ const GROUPS = [
     ['Longest video Gemini watches (seconds)', ''],
   ]],
 ];
+
+const MARKETS = [['LB', 'Lebanon'], ['JO', 'Jordan'], ['SY', 'Syria']];
+function MarketPicker({ value, onChange }) {
+  const v = String(value || '').toUpperCase();
+  const on = MARKETS.filter(([c, n]) => v.includes(c) || v.includes(n.toUpperCase())).map(([c]) => c);
+  const chosen = on.length ? on : MARKETS.map(([c]) => c);
+  const toggle = c => {
+    const next = chosen.includes(c) ? chosen.filter(x => x !== c) : [...chosen, c];
+    if (next.length) onChange(MARKETS.map(([m]) => m).filter(m => next.includes(m)).join(', '));
+  };
+  return (
+    <span className="markets" role="group" aria-label="Markets to find">
+      {MARKETS.map(([c, n]) => (
+        <label key={c} className={chosen.includes(c) ? 'mk on' : 'mk'}>
+          <input type="checkbox" checked={chosen.includes(c)} onChange={() => toggle(c)} disabled={chosen.length === 1 && chosen.includes(c)} />{n}
+        </label>
+      ))}
+    </span>
+  );
+}
 
 export default function Control({ api, notify, data: c, setData: setC }) {
   const [error, setError] = useState('');
@@ -143,7 +164,9 @@ export default function Control({ api, notify, data: c, setData: setC }) {
               {rows.filter(([k]) => k in values).map(([k, help]) => (
                 <label key={k} className="setting">
                   <span className="setting-text"><span>{k}</span>{help && <small>{help}</small>}</span>
-                  {k === 'Search TikTok'
+                  {k === 'Markets to find'
+                    ? <MarketPicker value={edits[k] ?? values[k]} onChange={v => setEdits(p => ({ ...p, [k]: v }))} />
+                    : k === 'Search TikTok'
                     ? <select value={edits[k] ?? values[k]} onChange={e => setEdits(p => ({ ...p, [k]: e.target.value }))}><option>Yes</option><option>No</option></select>
                     : <input value={edits[k] ?? values[k]} onChange={e => setEdits(p => ({ ...p, [k]: e.target.value }))} inputMode={k === 'Discovery days' ? 'text' : 'decimal'} />}
                 </label>

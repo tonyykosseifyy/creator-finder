@@ -37,7 +37,7 @@ function Row({ c, active, onPick, small }) {
       </span>
       <span className="row-side">
         <span className="row-f">{compact(f)}</span>
-        <span className="row-tags"><span className={'tier' + (small ? ' small' : '')}>{c.market || '?'}</span>{fit ? <span className="fit">fit {fit}</span> : null}</span>
+        <span className="row-tags"><span className={'tier' + (c.market === 'Unclear' || !c.market ? ' unclear' : '')} title={c.market === 'Unclear' || !c.market ? 'Location unclear' : undefined}>{c.market === 'Unclear' || !c.market ? 'Location?' : c.market}</span>{fit ? <span className="fit">fit {fit}</span> : null}</span>
       </span>
     </button>
   );
@@ -92,7 +92,7 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify, isTikTo
           </div>
           <div className="count">
             <strong>{f == null ? '?' : f.toLocaleString()}</strong>
-            <span>followers, {f != null && f < (smallMax || 10000) ? 'under 10k' : '10k and over'}, {c.market || 'market unclear'}</span>
+            <span>followers, {f != null && f < (smallMax || 10000) ? 'under 10k' : '10k and over'}, {!c.market || c.market === 'Unclear' ? 'location unclear' : c.market}</span>
           </div>
         </header>
         {c.summary && <p className="summary" dir="auto">{c.summary}</p>}
@@ -108,8 +108,9 @@ function Detail({ c, smallMax, today, activeDays, onDecide, api, notify, isTikTo
           </p>
         )}
 
-        {(c.competitor || c.brandSafety) && (
+        {(c.competitor || c.brandSafety || c.market === 'Unclear') && (
           <div className="warnings">
+            {c.market === 'Unclear' && <p className="warn">Location not confirmed: check their posts and bio before contacting.{String(c.marketEvidence || '').replace(/^Location unclear;?\s*/, '') ? ` Clues: ${String(c.marketEvidence).replace(/^Location unclear;?\s*/, '')}` : ''}</p>}
             {c.competitor && <p className="warn bad">Competitor link: {c.competitor}</p>}
             {c.brandSafety && <p className="warn">Brand safety: {c.brandSafety}</p>}
           </div>
@@ -280,7 +281,7 @@ export default function Review({ platform, queue, error, reload, decide, api, no
           </button>
           <div id="filter-body" className={showFilters ? 'filter-body open' : 'filter-body'}>
           <div className="filter-grid">
-            <select value={f.market} onChange={e => set('market', e.target.value)} aria-label="Market"><option value="">All markets</option><option value="LB">Lebanon</option><option value="JO">Jordan</option><option value="SY">Syria</option></select>
+            <select value={f.market} onChange={e => set('market', e.target.value)} aria-label="Market"><option value="">All markets</option><option value="LB">Lebanon</option><option value="JO">Jordan</option><option value="SY">Syria</option><option value="Unclear">Location unclear</option></select>
             <select value={f.tier} onChange={e => set('tier', e.target.value)} aria-label="Size"><option value="">All sizes</option><option value="small">Under 10k</option><option value="big">10k and over</option></select>
             <select value={f.hair} onChange={e => set('hair', e.target.value)} aria-label="Hair"><option value="">Any hair</option><option>Straight</option><option>Wavy</option><option>Curly</option><option>Coily</option></select>
             <select value={f.fit} onChange={e => set('fit', Number(e.target.value))} aria-label="UGC fit"><option value={0}>Any UGC fit</option><option value={3}>UGC fit 3+</option><option value={4}>UGC fit 4+</option></select>
