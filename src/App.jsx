@@ -48,7 +48,7 @@ class Boundary extends React.Component {
   }
 }
 
-const SHEET_TABS = ['creators', 'candidates', 'keywords', 'seeds', 'network', 'runlog'];
+const SHEET_TABS = ['creators', 'candidates', 'keywords', 'seeds', 'network', 'backlog', 'runlog'];
 const ROUTES = ['instagram', 'tiktok', ...SHEET_TABS, 'brands', 'control'];
 const routeFromHash = () => {
   const [a, b] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -177,6 +177,7 @@ export default function App() {
     ['keywords', 'Keywords', null],
     ['seeds', 'Seeds', null],
     ['network', 'Network', null],
+    ['backlog', 'Backlog', null],
     ['runlog', 'Run log', null],
     ['brands', 'Brands', null],
     ['control', 'Control', null],
