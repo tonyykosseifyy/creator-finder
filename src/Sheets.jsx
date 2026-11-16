@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // One entry per tab: what it is for, the columns shown first, and choices for columns with fixed values.
 const TABS = [
-  ['creators', 'Creators', 'Creators you shortlisted: your outreach list. Status, messages, dates and notes are yours to edit.',
+  ['creators', 'Creators', 'Creators you shortlisted: your outreach list. Status, messages, dates and notes are yours to edit, and you can delete anyone you no longer want on the list.',
     ['List date', 'Platform', 'Handle', 'Name', 'Followers', 'Market', 'Hair type', 'Score', 'Matched briefs', 'Contact', 'Status', 'Contacted on', 'Notes']],
   ['candidates', 'Candidates', 'Everyone the finder found and Gemini studied. You review them on the Instagram and TikTok pages.',
     ['Found on', 'Platform', 'Handle', 'Name', 'Followers', 'Market guess', 'Hair type', 'UGC fit (1-5)', 'Persona', 'Source', 'Review', 'Reviewed on']],
@@ -146,25 +146,16 @@ export default function Sheets({ api, notify, tab, cache, setCache }) {
     <main id="main" className="page sheets">
       <div className="page-head">
         <div>
-          <h1>Sheets</h1>
-          <p className="muted">Everything the finder keeps, straight from the Google Sheet.</p>
+          <h1>{meta[1]}</h1>
+          <p className="muted">{meta[2]}</p>
         </div>
         {data && <a className="btn" href={data.url} target="_blank" rel="noreferrer">Open in Google Sheets<span className="sr-only"> (opens in a new tab)</span></a>}
       </div>
 
-      <nav className="subtabs" aria-label="Sheets">
-        {TABS.map(([id, label]) => (
-          <a key={id} href={`#/sheets/${id}`} className={id === meta[0] ? 'subtab on' : 'subtab'} aria-current={id === meta[0] ? 'page' : undefined}>
-            {label}{cache[SHEET_NAME[id]] && <span className="subcount">{cache[SHEET_NAME[id]].rows.length}</span>}
-          </a>
-        ))}
-        <a href="#/brands" className="subtab">Brands</a>
-        <a href="#/control" className="subtab">Settings</a>
-      </nav>
 
       <section className="panel sheet-panel">
         <div className="sheet-head">
-          <p className="muted">{meta[2]}</p>
+          <p className="muted small table-count-top">{data ? (q ? `${rows.length} of ${data.rows.length} rows match` : `${data.rows.length} ${data.rows.length === 1 ? 'row' : 'rows'}`) + (name !== 'Keywords' && name !== 'Seeds' ? ', newest first' : '') : ''}</p>
           <div className="actions">
             <input type="search" value={q} onChange={e => { setQ(e.target.value); setLimit(PAGE); }} placeholder={`Search ${name}`} aria-label={`Search ${name}`} />
             {meta[3] && <label className="muted small"><input type="checkbox" checked={allCols} onChange={e => setAllCols(e.target.checked)} /> All columns</label>}
@@ -188,7 +179,6 @@ export default function Sheets({ api, notify, tab, cache, setCache }) {
                 <button className="btn primary" type="submit" disabled={!String(newRow[0] || '').trim()}>Add {name === 'Keywords' ? 'keyword' : 'seed'}</button>
               </form>
             )}
-            <p className="muted small table-count">{q ? `${rows.length} of ${data.rows.length} rows match` : `${data.rows.length} rows`}{name !== 'Keywords' && name !== 'Seeds' ? ', newest first' : ''}</p>
             <div className="table-wrap sheet-table">
               <table>
                 <thead><tr>{cols.map(c => <th key={c.i} scope="col">{c.h}{data.edit.includes(c.i) && <span className="edit-dot" title="You can edit this column" aria-label="editable"> ✎</span>}</th>)}{data.del && <th scope="col"><span className="sr-only">Delete</span></th>}</tr></thead>
