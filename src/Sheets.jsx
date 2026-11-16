@@ -168,7 +168,7 @@ export default function Sheets({ api, notify, tab, cache, setCache }) {
           <div className="actions">
             <input type="search" value={q} onChange={e => { setQ(e.target.value); setLimit(PAGE); }} placeholder={`Search ${name}`} aria-label={`Search ${name}`} />
             {meta[3] && <label className="muted small"><input type="checkbox" checked={allCols} onChange={e => setAllCols(e.target.checked)} /> All columns</label>}
-            <button className="btn" onClick={load} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+            <button className="btn" onClick={load} disabled={loading}>{loading ? (data ? 'Refreshing…' : 'Loading…') : 'Refresh'}</button>
           </div>
         </div>
 
