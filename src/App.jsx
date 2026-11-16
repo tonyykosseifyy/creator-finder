@@ -4,6 +4,7 @@ import Review from './Review.jsx';
 import Brands from './Brands.jsx';
 import Control from './Control.jsx';
 import Sheets from './Sheets.jsx';
+import RunBar, { fmtDuration } from './RunBar.jsx';
 
 function Login({ onKey, error }) {
   const [value, setValue] = useState('');
@@ -65,7 +66,10 @@ export default function App() {
   const [queueError, setQueueError] = useState('');
   const [brands, setBrands] = useState(null);     // kept between visits so switching screens is instant
   const [control, setControl] = useState(null);
-  const [sheets, setSheets] = useState({});       // one entry per sheet tab, loaded when first opened
+  const [sheets, setSheets] = useState({});
+  const [run, setRun] = useState(null);           // run status from the server; drives the running bar
+  const [skew, setSkew] = useState(0);            // server clock minus this device's clock
+  const wasRunning = useRef(false);       // one entry per sheet tab, loaded when first opened
   const timer = useRef();
   const pending = useRef(new Map());              // decisions waiting out their undo window
 
@@ -81,7 +85,7 @@ export default function App() {
   const notify = useCallback((text, tone = 'plain', action = null) => {
     setToast({ text, tone, action, id: Date.now() });
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setToast(null), action ? UNDO_MS : 4200);
+    timer.current = setTimeout(() => setToast(null), action ? (action.label === "Review" ? 15000 : UNDO_MS) : 4200);
   }, []);
 
   // every screen calls the backend through this; a rejected key sends you back to the sign-in screen
@@ -98,6 +102,26 @@ export default function App() {
     try { setQueue(await api('uiQueue')); } catch (e) { setQueueError(e.message); }
   }, [api]);
   useEffect(() => { if (key) loadQueue(); }, [key, loadQueue]);
+
+  // Run status: checked when the portal opens, then every 30 s while a run is going.
+  const takeRun = useCallback(r => { if (!r) return; setSkew(r.now ? r.now - Date.now() : 0); setRun(r); }, []);
+  const checkRun = useCallback(async () => { try { takeRun(await api('uiRunStatus')); } catch (e) { /* keep the last known status */ } }, [api, takeRun]);
+  useEffect(() => { if (key) checkRun(); }, [key, checkRun]);
+  const running = !!(run && run.stage && run.stage !== 'idle');
+  useEffect(() => {
+    if (!running) return undefined;
+    const t = setInterval(checkRun, 30000);
+    return () => clearInterval(t);
+  }, [running, checkRun]);
+  // when a run ends while the portal is open: say so, and load the new creators
+  useEffect(() => {
+    if (wasRunning.current && !running && run) {
+      const took = run.lastStarted && run.lastFinished ? ` in ${fmtDuration(run.lastFinished - run.lastStarted)}` : '';
+      notify(`Run finished${took}. ${String(run.status || '').replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}: /, '')}`, 'good', { label: 'Review', run: () => { window.location.hash = '#/instagram'; setToast(null); } });
+      loadQueue(); setSheets({}); setControl(null);
+    }
+    wasRunning.current = running;
+  }, [running, run, notify, loadQueue]);
 
   // A decision leaves the queue at once and is saved after the undo window.
   // If the tab closes first, the browser still sends it (sendBeacon).
@@ -171,12 +195,13 @@ export default function App() {
         </nav>
         <button className="link quiet signout" onClick={() => { forgetKey(); setKey(''); }}>Sign out</button>
       </header>
+      <RunBar run={run} skew={skew} />
       <Boundary key={route}>
         {route === 'instagram' && <Review platform="Instagram" queue={queue} error={queueError} reload={loadQueue} decide={decide} api={api} notify={notify} />}
         {route === 'tiktok' && <Review platform="TikTok" queue={queue} error={queueError} reload={loadQueue} decide={decide} api={api} notify={notify} />}
         {SHEET_TABS.includes(route) && <Sheets api={api} notify={notify} tab={route} cache={sheets} setCache={setSheets} />}
         {route === 'brands' && <Brands api={api} notify={notify} rows={brands} setRows={setBrands} />}
-        {route === 'control' && <Control api={api} notify={notify} data={control} setData={setControl} />}
+        {route === 'control' && <Control api={api} notify={notify} data={control} setData={setControl} run={run} onRun={takeRun} />}
       </Boundary>
       {toast && (
         <div key={toast.id} className={'toast ' + toast.tone} role="status" aria-live="polite">

@@ -306,3 +306,21 @@ a.btn { text-decoration: none; }
 .tab.group-start::before { content: ''; position: absolute; left: -9px; top: 8px; bottom: 8px; width: 1px; background: rgba(255, 255, 255, 0.2); }
 .table-count-top { margin: 0; }
 .c-del { padding-right: 16px !important; }
+
+/* running bar */
+.runbar { display: flex; align-items: center; gap: 14px; padding: 10px 20px; background: #fbeef3; border-bottom: 1px solid #f1c7d6; }
+.runbar-text { display: grid; gap: 1px; flex: 1; min-width: 0; font-size: 14px; }
+.runbar-text strong { font-family: var(--display); font-size: 15px; }
+.runbar-status { color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.runbar-time { display: grid; justify-items: end; text-align: right; }
+.runbar-time strong { font: 700 22px var(--display); font-variant-numeric: tabular-nums; color: var(--heat-ink); line-height: 1.1; }
+.runbar-time span { font-size: 12.5px; color: var(--ink-2); }
+.pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--heat); flex: none; animation: pulse 1.6s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--heat) 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+@media (max-width: 900px) { .runbar { padding: 10px 14px; align-items: flex-start; } .runbar-time strong { font-size: 18px; } .runbar-status { white-space: normal; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+@media (max-width: 600px) {
+  .runbar { flex-wrap: wrap; }
+  .runbar-text { flex-basis: calc(100% - 30px); }
+  .runbar-time { flex-basis: 100%; justify-items: start; text-align: left; padding-left: 24px; }
+}

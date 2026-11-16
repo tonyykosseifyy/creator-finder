@@ -66,7 +66,7 @@ function MarketPicker({ value, onChange }) {
   );
 }
 
-export default function Control({ api, notify, data: c, setData: setC }) {
+export default function Control({ api, notify, data: c, setData: setC, run: liveRun, onRun }) {
   const [error, setError] = useState('');
   const [edits, setEdits] = useState({});
   const [seeds, setSeeds] = useState('');
@@ -78,11 +78,11 @@ export default function Control({ api, notify, data: c, setData: setC }) {
     setError(''); setBusy('load');
     try { setC(await api('uiControl')); setEdits({}); } catch (e) { setError(e.message); } finally { setBusy(''); }
   }, [api, setC]);
-  useEffect(() => { if (!c) load(); }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!c) load(); }, [c, load]); // reloads after a run finishes too
 
   const run = async (label, fn, done) => {
     setBusy(label);
-    try { const r = await fn(); if (r && r.settings) setC(r); if (done) notify(done(r), 'good'); return r; }
+    try { const r = await fn(); if (r && r.settings) setC(r); if (r && r.run && onRun) onRun(r.run); if (done) { const m = [].concat(done(r)); notify(m[0], m[1] || 'good'); } return r; }
     catch (e) { notify(e.message, 'bad'); }
     finally { setBusy(''); }
   };
@@ -90,6 +90,7 @@ export default function Control({ api, notify, data: c, setData: setC }) {
   if (error && !c) return <main id="main" className="state"><p>{error}</p><button className="btn" onClick={load}>Try again</button></main>;
   if (!c) return <main id="main" className="state" aria-busy="true"><p className="loading">Loading the finder's status…</p></main>;
 
+  const stage = (liveRun && liveRun.stage) || c.stage || 'idle';
   const values = Object.fromEntries(c.settings);
   const known = new Set(GROUPS.flatMap(([, rows]) => rows.map(([k]) => k)));
   const others = c.settings.filter(([k]) => !known.has(k)).map(([k]) => [k, '']);
@@ -125,15 +126,15 @@ export default function Control({ api, notify, data: c, setData: setC }) {
           <section className="panel">
             <h2>Daily run</h2>
             <p>{c.switchOn ? 'The finder runs every day at 05:00 Beirut.' : 'The finder is off: no runs and no spend.'}</p>
-            <p className="muted">{c.stage === 'idle' ? 'Not running now.' : `Running now: ${c.stage}.`}</p>
+            <p className="muted">{stage === 'idle' ? 'Not running now.' : 'Running now: see the bar at the top for the step and how long it has been going.'}</p>
             <div className="actions">
               <button className={c.switchOn ? 'btn' : 'btn primary'} disabled={!!busy} onClick={() => run('switch', () => api('uiSwitch', !c.switchOn), r => (r.switchOn ? 'Daily run turned on' : 'Daily run turned off'))}>
                 {c.switchOn ? 'Turn off' : 'Turn on'}
               </button>
               {!armed
-                ? <button className="btn" disabled={!!busy || c.stage !== 'idle'} onClick={() => setArmed(true)}>Run now</button>
+                ? <button className="btn" disabled={!!busy || stage !== 'idle'} onClick={() => setArmed(true)}>Run now</button>
                 : <>
-                    <button className="btn primary" disabled={!!busy} onClick={() => { setArmed(false); run('run', () => api('uiRunNow'), () => 'Run started. It takes about an hour; refresh to follow it.'); }}>Start a full run</button>
+                    <button className="btn primary" disabled={!!busy} onClick={() => { setArmed(false); run('run', () => api('uiRunNow'), r => (r.run && r.run.stage !== 'idle' ? ['Run started. The bar at the top shows its progress.', 'good'] : [`The run did not start: ${String((r.run && r.run.status) || r.status || '').replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}: /, '')}`, 'bad'])); }}>Start a full run</button>
                     <button className="link quiet" onClick={() => setArmed(false)}>Cancel</button>
                   </>}
             </div>
