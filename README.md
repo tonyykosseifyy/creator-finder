@@ -23,3 +23,7 @@ npm run build    # output in dist/
 ```
 
 The backend URL is in `src/api.js`. Hosting: Vercel, building from this repo on every push to `master`.
+
+## Sheets page
+
+`#/sheets/<tab>` shows Creators, Candidates, Keywords, Seeds, Network and Run log straight from the Google Sheet. Columns the finder fills stay read-only; Creators outreach columns, Keywords and Seeds are editable, Keywords and Seeds rows can be added, and Keywords, Seeds and Network rows can be deleted (not while a run is in progress).

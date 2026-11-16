@@ -3,6 +3,7 @@ import { call, readKey, saveKey, forgetKey, KeyError, EXEC_URL } from './api.js'
 import Review from './Review.jsx';
 import Brands from './Brands.jsx';
 import Control from './Control.jsx';
+import Sheets from './Sheets.jsx';
 
 function Login({ onKey, error }) {
   const [value, setValue] = useState('');
@@ -46,24 +47,28 @@ class Boundary extends React.Component {
   }
 }
 
-const ROUTES = ['instagram', 'tiktok', 'brands', 'control'];
-const routeFromHash = () => { const r = window.location.hash.replace(/^#\/?/, ''); return ROUTES.includes(r) ? r : 'instagram'; };
+const ROUTES = ['instagram', 'tiktok', 'sheets', 'brands', 'control'];
+const hashParts = () => window.location.hash.replace(/^#\/?/, '').split('/');
+const routeFromHash = () => { const r = hashParts()[0]; return ROUTES.includes(r) ? r : 'instagram'; };
+const subFromHash = () => hashParts()[1] || 'creators';
 const UNDO_MS = 6000;
 
 export default function App() {
   const [key, setKey] = useState(() => readKey());
   const [keyError, setKeyError] = useState('');
   const [route, setRoute] = useState(routeFromHash);
+  const [sub, setSub] = useState(subFromHash);
   const [toast, setToast] = useState(null);
   const [queue, setQueue] = useState(null);       // shared by the Instagram and TikTok pages, loaded once
   const [queueError, setQueueError] = useState('');
   const [brands, setBrands] = useState(null);     // kept between visits so switching screens is instant
   const [control, setControl] = useState(null);
+  const [sheets, setSheets] = useState({});       // one entry per sheet tab, loaded when first opened
   const timer = useRef();
   const pending = useRef(new Map());              // decisions waiting out their undo window
 
   useEffect(() => {
-    const on = () => setRoute(routeFromHash());
+    const on = () => { setRoute(routeFromHash()); setSub(subFromHash()); };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
@@ -137,6 +142,7 @@ export default function App() {
   const tabs = [
     ['instagram', 'Instagram', queue ? count('Instagram') : null],
     ['tiktok', 'TikTok', queue ? count('TikTok') : null],
+    ['sheets', 'Sheets', null],
     ['brands', 'Brands', null],
     ['control', 'Control', null],
   ];
@@ -158,6 +164,7 @@ export default function App() {
       <Boundary key={route}>
         {route === 'instagram' && <Review platform="Instagram" queue={queue} error={queueError} reload={loadQueue} decide={decide} api={api} notify={notify} />}
         {route === 'tiktok' && <Review platform="TikTok" queue={queue} error={queueError} reload={loadQueue} decide={decide} api={api} notify={notify} />}
+        {route === 'sheets' && <Sheets api={api} notify={notify} tab={sub} cache={sheets} setCache={setSheets} />}
         {route === 'brands' && <Brands api={api} notify={notify} rows={brands} setRows={setBrands} />}
         {route === 'control' && <Control api={api} notify={notify} data={control} setData={setControl} />}
       </Boundary>
