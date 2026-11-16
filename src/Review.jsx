@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const REASONS = ['Wrong hair for our briefs', 'Wrong market', 'Content quality too low', 'Not a creator (brand, page, meme)', 'Worked with a competitor', 'Too small or too big', 'Not a fit for the brand', 'Other'];
+const REASONS = ['Wrong hair for our briefs', 'Hair covered (headscarf)', 'Wrong market', 'Content quality too low', 'Not a creator (brand, page, meme)', 'Worked with a competitor', 'Too small or too big', 'Not a fit for the brand', 'Other'];
 const num = s => { const n = Number(String(s ?? '').replace(/[,\s%]/g, '')); return Number.isFinite(n) && String(s ?? '').trim() !== '' ? n : null; };
 const compact = n => n == null ? '?' : n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'k' : String(n);
 const clean = v => (v && v !== 'Unclear' ? v : '');
